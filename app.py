@@ -31,19 +31,13 @@ client_v2 = tweepy.Client(
 # Function to get a random controversial phrase
 def get_random_controversial_phrase():
     api_url = "https://scarlett-gjrx.onrender.com/"  # Update this to your actual API link
-    response = requests.get(api_url)
-    
-    if response.status_code == 200:
-        try:
-            data = response.json()
-            category = data.get("category", "Unknown")
-            controversial_phrase = data.get("controversial_phrase", "No phrase available")
-            return controversial_phrase
-        except ValueError:
-            print("Failed to parse JSON. The response might not be valid JSON.")
-            return None
-    else:
-        print("Failed to fetch data from the API. Status code:", response.status_code)
+    try:
+        response = requests.get(api_url, timeout=10)  # Timeout added
+        response.raise_for_status()  # Raise error for HTTP codes like 404, 500
+        data = response.json()
+        return data.get("controversial_phrase", "No phrase available")
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to fetch data from the API: {e}")
         return None
 
 # Function to upload media to Twitter
@@ -57,19 +51,22 @@ def upload_image(image_path):
 
 # Function to post the tweet
 def post_tweet(image, text):
-    if image and text:
-        media_id = upload_image(image)
-        if media_id:
-            client_v2.create_tweet(text=text, media_ids=[media_id])
-            print(f"Tweeted with image and text: {text}")
-    elif text:
-        client_v2.create_tweet(text=text)
-        print(f"Tweeted with text: {text}")
-    elif image:
-        media_id = upload_image(image)
-        if media_id:
-            client_v2.create_tweet(text="", media_ids=[media_id])
-            print("Tweeted with image only")
+    try:
+        if image and text:
+            media_id = upload_image(image)
+            if media_id:
+                client_v2.create_tweet(text=text, media_ids=[media_id])
+                print(f"Tweeted with image and text: {text}")
+        elif text:
+            client_v2.create_tweet(text=text)
+            print(f"Tweeted with text: {text}")
+        elif image:
+            media_id = upload_image(image)
+            if media_id:
+                client_v2.create_tweet(text="", media_ids=[media_id])
+                print("Tweeted with image only")
+    except tweepy.TweepyException as e:
+        print(f"Error posting tweet: {e}")
 
 # Bot's main loop function
 def main():
@@ -78,8 +75,8 @@ def main():
         if random_phrase:
             post_tweet(image="", text=random_phrase)
         
-        print('Waiting for the next hour...')
-        time.sleep(10)  # Run every hour
+        print('Waiting for the next interval...')
+        time.sleep(3600)  # Run every hour
 
 # Function to start the bot in a background thread
 def start_bot():
@@ -92,7 +89,13 @@ def start_bot():
 def index():
     return "Flask API with bot is running in background."
 
-# Start the bot when the server starts
+# Endpoint to start the bot if needed (e.g., for troubleshooting)
+@app.route('/start-bot')
+def start_bot_route():
+    start_bot()
+    return "Bot started."
+
+# Start the server and bot in production environments
 if __name__ == '__main__':
     start_bot()  # Start the bot in the background
     app.run(debug=True)
