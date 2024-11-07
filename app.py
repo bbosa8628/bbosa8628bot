@@ -28,17 +28,26 @@ client_v2 = tweepy.Client(
     wait_on_rate_limit=True,
 )
 
-# Function to get a random controversial phrase
+# Function to get a random controversial phrase with retry logic
 def get_random_controversial_phrase():
     api_url = "https://scarlett-gjrx.onrender.com/"  # Update this to your actual API link
-    try:
-        response = requests.get(api_url, timeout=10)  # Timeout added
-        response.raise_for_status()  # Raise error for HTTP codes like 404, 500
-        data = response.json()
-        return data.get("controversial_phrase", "No phrase available")
-    except requests.exceptions.RequestException as e:
-        print(f"Failed to fetch data from the API: {e}")
-        return None
+    max_retries = 3
+    retry_delay = 5  # seconds
+
+    for attempt in range(max_retries):
+        try:
+            response = requests.get(api_url, timeout=20)  # Increased timeout
+            response.raise_for_status()  # Check for HTTP errors
+            data = response.json()
+            return data.get("controversial_phrase", "No phrase available")
+        except requests.exceptions.RequestException as e:
+            print(f"Attempt {attempt + 1} failed: {e}")
+            if attempt < max_retries - 1:  # Don't delay after the final attempt
+                print(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+            else:
+                print("Max retries reached. Failed to fetch data.")
+                return None
 
 # Function to upload media to Twitter
 def upload_image(image_path):
