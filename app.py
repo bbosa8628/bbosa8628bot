@@ -7,11 +7,11 @@ import threading
 app = Flask(__name__)
 
 # Twitter API authentication details (Replace with your actual details)
-bearer_token = "AAAAAAAAAAAAAAAAAAAAAM5jrwEAAAAAatuGI9B7nDq%2Fd3ISi6fw%2FRtBEIU%3D0RFD3tnMRjOZb10GbLcQ6ssaU1xtDR4UxytSJ1h0cw12x8gdk8"
-consumer_key = "3egxky6Ftp9pwYpbDg9vUNofU"
-consumer_secret = "C05f4FX7wxmWDCdSYqreEyNDvT1xKMjCQftYZZ6sfZbK8UQkBY"
-access_token = "1744117039608852480-BkwFNFnquOWjjZEvQ2Zd41pCdW02x9"
-access_token_secret = "t8ttiDPS58NAjDG1dBSXDxpQq6WfGQcBc8iFE0HMMMUai"
+bearer_token = ""
+consumer_key = ""
+consumer_secret = ""
+access_token = ""
+access_token_secret = ""
 
 # V1 Authentication for media upload
 auth_v1 = tweepy.OAuthHandler(consumer_key, consumer_secret)
