@@ -1,10 +1,10 @@
 import requests
 import tweepy
-import language_tool_python  # Assuming this package for grammar correction
 import time  # Import time module for scheduling
 
-print ('runnning...')
-print ('')
+print('Running...')
+print('')
+
 # Scarlett bot's variables
 image = ""  # Set to an empty string if there's no image
 
@@ -53,16 +53,6 @@ def get_random_controversial_phrase():
         print("Failed to fetch data from the API. Status code:", response.status_code)
         return None
 
-# Function to make the phrase grammatically correct and more human-like
-def generate_better_tweet(phrase):
-    tool = language_tool_python.LanguageTool('en-US')  # Initialize language tool for grammar correction
-    corrected_text = tool.correct(phrase)  # Correct grammatical issues
-    # Ensure the tweet is within 280 characters
-    if len(corrected_text) > 280:
-        corrected_text = corrected_text[:277] + "..."  # Truncate and add ellipsis if too long
-    print(f"Corrected Phrase (within 280 chars): {corrected_text}\n")
-    return corrected_text
-
 # Function to upload media to Twitter using API v1
 def upload_image(image_path):
     try:
@@ -96,12 +86,11 @@ def main():
     while True:
         random_phrase = get_random_controversial_phrase()
         if random_phrase:
-            bettertweet = generate_better_tweet(random_phrase)
-            text = bettertweet  # Assign the corrected phrase to the text variable
+            text = random_phrase  # Assign the original phrase to the text variable
             post_tweet(image, text)
         
-        print ('')
-        print ('going for another...')
+        print('')
+        print('Going for another...')
         # Delay before the next tweet
         time.sleep(3600)  # Run every hour (3600 seconds)
 
