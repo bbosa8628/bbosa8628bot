@@ -79,7 +79,7 @@ def main():
             post_tweet(image="", text=random_phrase)
         
         print('Waiting for the next hour...')
-        time.sleep(600)  # Run every hour
+        time.sleep(10)  # Run every hour
 
 # Function to start the bot in a background thread
 def start_bot():
