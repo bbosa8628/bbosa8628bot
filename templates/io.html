@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>bbosa8628 : Stranger Chat</title>
+    
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #1b1b1b;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+        #chat {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 10px;
+            border: 1px solid #444;
+            background-color: #000000;
+        }
+        #chat div {
+            word-wrap: break-word;
+            overflow-wrap: anywhere;
+            padding: 5px;
+            margin-bottom: 5px;
+        }
+
+        .user-message {
+            color: #4CAF50; /* Green color for user */
+            font-weight: bold;
+        }
+
+        .Stranger-response {
+            color: #FF9800; /* Orange color for Stranger (Bot) */
+            font-weight: bold;
+        }
+
+        .typing {
+            color: #FFEB3B; /* Yellow for typing indicator */
+            font-weight: normal;
+            font-style: italic;
+        }
+
+        #messageBox {
+            display: flex;
+            padding: 10px;
+            background-color: #111111;
+            border-top: 1px solid #444;
+        }
+        #messageBox input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #555;
+            background-color: #222;
+            color: #e0e0e0;
+        }
+        #messageBox button {
+            margin-left: 10px;
+            padding: 10px 20px;
+            background-color: #111111;
+            border: 1px solid #666;
+            color: #e0e0e0;
+            cursor: pointer;
+        }
+        #messageBox button:hover {
+            background-color: #555;
+        }
+
+        /* End button style */
+        #endButton {
+            margin-left: 10px;
+            padding: 10px 20px;
+            background-color: #D32F2F; /* Red background color */
+            border: 1px solid #666;
+            color: #e0e0e0;
+            cursor: pointer;
+        }
+
+        #endButton:hover {
+            background-color: #B71C1C; /* Darker red on hover */
+        }
+
+        /* Searching notification style */
+        #searchingNotification {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #FF9800;
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 16px;
+            z-index: 10;
+            display: none; /* Initially hidden */
+        }
+
+        /* Paired notification style */
+        #pairedNotification {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #4CAF50; /* Green background */
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 16px;
+            z-index: 10;
+            display: none; /* Initially hidden */
+        }
+    </style>
+</head>
+<body>
+    <div id="searchingNotification">Searching for Stranger...</div> <!-- Searching notification added here -->
+    <div id="pairedNotification">Paired with a random stranger...</div> <!-- Paired notification added here -->
+    <div id="chat"></div>
+    <div id="messageBox">
+        <input type="text" id="messageInput" placeholder="Type a message..." maxlength="286">
+        <button id="sendMessageButton">Send</button>
+        <button id="endButton">End</button>
+    </div>
+
+    <script type="text/javascript">
+        let username = `Me`;  // Changed from 'Stranger' to 'Me'
+        let conversationHistory = [];  // Maintain history of conversation to help with context
+        const greetings = ['hi', 'hello', 'hey', 'bye', 'goodbye', 'hi there', 'hello there']; // List of greeting words
+        let lastResponse = "";  // Store the last response to check for repeats
+
+        // Function to simulate active user count
+        function updateActiveUserCount() {
+            const activeUserDiv = document.getElementById('activeUsers');
+            
+            // Simulate active user count
+            let activeCount = 500; // Display 500+ users for this example
+            let displayCount = activeCount;
+            if (activeCount > 200) {
+                displayCount = '500+';
+            } else if (activeCount > 100) {
+                displayCount = '100+';
+            }
+
+            activeUserDiv.textContent = `Active Users: ${displayCount}`;
+        }
+
+        // Add a transparent div to the top-right corner for displaying active user count
+        const activeUserDiv = document.createElement('div');
+        activeUserDiv.id = 'activeUsers';
+        activeUserDiv.style.position = 'absolute';
+        activeUserDiv.style.top = '10px';
+        activeUserDiv.style.right = '10px';
+        activeUserDiv.style.color = 'rgba(255, 255, 255, 0.7)';
+        activeUserDiv.style.fontSize = '14px';
+        activeUserDiv.style.fontWeight = 'bold';
+        activeUserDiv.style.pointerEvents = 'none'; // Prevent interaction
+        document.body.appendChild(activeUserDiv);
+
+        // Initialize active user count tracking
+        updateActiveUserCount();
+
+        // Show searching notification when the page loads
+        window.onload = function() {
+            const searchingNotification = document.getElementById('searchingNotification');
+            searchingNotification.style.display = 'block';  // Show the notification
+
+            // Hide the notification after 5 seconds
+            setTimeout(function() {
+                searchingNotification.style.display = 'none';
+
+                // Show paired notification after searching notification disappears
+                const pairedNotification = document.getElementById('pairedNotification');
+                pairedNotification.style.display = 'block';  // Show the paired notification
+
+                // Hide the paired notification after 1 second
+                setTimeout(function() {
+                    pairedNotification.style.display = 'none';
+                }, 1000);
+
+            }, 5000);
+        }
+
+        // Function to display messages in the chat area
+        function displayMessage(message, isUser) {
+            const chatDiv = document.getElementById('chat');
+            const messageElement = document.createElement('div');
+            messageElement.textContent = `${isUser ? username : 'Stranger'}: ${message}`;
+            messageElement.classList.add(isUser ? 'user-message' : 'Stranger-response');
+            chatDiv.appendChild(messageElement);
+            chatDiv.scrollTop = chatDiv.scrollHeight; // Scroll to the latest message
+        }
+
+        // Function to display typing indicator
+        function displayTypingIndicator() {
+            const chatDiv = document.getElementById('chat');
+            const typingElement = document.createElement('div');
+            typingElement.textContent = "Stranger is typing...";
+            typingElement.classList.add('typing');
+            chatDiv.appendChild(typingElement);
+            chatDiv.scrollTop = chatDiv.scrollHeight; // Scroll to the latest message
+        }
+
+        // Send message with conversation context
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const messageText = messageInput.value.trim();
+
+            if (messageText) {
+                // Check if the message is a greeting and if it matches a previous message to prevent repeating responses
+                const lastMessage = conversationHistory[conversationHistory.length - 1];
+                const isGreeting = greetings.some(greeting => messageText.toLowerCase().includes(greeting));
+                
+                // If it's a greeting or not the same as the last message, allow the response
+                if (isGreeting || messageText !== lastMessage) {
+                    // Display user message
+                    displayMessage(messageText, true); 
+                    conversationHistory.push(`You: ${messageText}`);  // Save the user message
+
+                    // Show typing indicator
+                    displayTypingIndicator();
+
+                    // Simulate a delay for Stranger's response
+                    setTimeout(function() {
+                        // Send message to Flask server with conversation context
+                        fetch('/chat', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ 
+                                message: messageText,
+                                context: conversationHistory.slice(-5)  // Only send last 5 messages to keep context
+                            })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            // Remove the typing indicator
+                            const typingElements = document.querySelectorAll('.typing');
+                            typingElements.forEach(element => element.remove());
+
+                            // Check if the response is the same as the last response to prevent repeat
+                            if (data.response !== lastResponse) {
+                                // Display Stranger response
+                                displayMessage(data.response, false);  // Display Stranger response
+                                conversationHistory.push(`Stranger: ${data.response}`);  // Save Stranger response
+                                lastResponse = data.response;  // Update last response
+                            } else {
+                                console.log('Response is a repeat, no new response displayed.');
+                            }
+                        });
+                    }, 2000); // Delay for 2 seconds before showing the response
+                } else {
+                    console.log('Message is a duplicate and won\'t trigger a response.');
+                }
+
+                messageInput.value = '';
+            }
+        }
+
+        // Event listener for sending the message
+        document.getElementById('sendMessageButton').addEventListener('click', sendMessage);
+
+        // Bind Enter key for sending message
+        document.getElementById('messageInput').addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                sendMessage();
+                event.preventDefault();
+            }
+        });
+
+        // Event listener for the End button to reload the page
+        document.getElementById('endButton').addEventListener('click', function() {
+            location.reload();  // Reload the page to end the conversation
+        });
+    </script>
+</body>
+</html>
