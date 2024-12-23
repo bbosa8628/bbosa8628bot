@@ -1,110 +1,108 @@
-from flask import Flask, jsonify, request
-import requests
-import tweepy
-import time
-import threading
+import json
+import random
+from difflib import get_close_matches
+from flask import Flask, render_template, request, jsonify
 
+# Load preprocessed training data
+def load_training_data(input_file="brain.json"):
+    with open(input_file, "r", encoding="utf-8") as json_file:
+        return json.load(json_file)
+
+# Fuzzy match to find the best response, with randomization
+def find_best_response(user_input, input_output_pairs):
+    user_input = user_input.lower()
+    possible_responses = []
+
+    # Handle specific protocol responses
+    if user_input == "f":
+        return "m"
+    elif user_input == "m":
+        return "f"
+    elif user_input == "f or m":
+        return random.choice(["m", "f"])
+    elif "are you a bot" in user_input or "are you a robot" in user_input:
+        return "lemme hope you're not a bot"
+    elif "do you hate humans" in user_input:
+        return "why would I hate myself"
+
+    # Direct match
+    for question, answer in input_output_pairs:
+        if user_input == question:
+            possible_responses.append(answer)
+
+    # Fuzzy match
+    questions = [q for q, _ in input_output_pairs]
+    closest_matches = get_close_matches(user_input, questions, n=1, cutoff=0.5)
+    if closest_matches:
+        match = closest_matches[0]
+        for question, answer in input_output_pairs:
+            if question == match:
+                possible_responses.append(answer)
+
+    # Return a random response from possible ones
+    if possible_responses:
+        return random.choice(possible_responses)
+
+    return None
+
+# Generate a response using context
+def get_response(user_input, input_output_pairs, conversation_history, sent_responses):
+    # Update conversation history
+    conversation_history.append(f"You: {user_input}")
+    
+    # Check for a relevant response
+    response = find_best_response(user_input, input_output_pairs)
+    
+    # If a response is found, ensure it hasn't been sent already
+    while response in sent_responses:
+        response = find_best_response(user_input, input_output_pairs)
+        if not response:  # If no response is found, break to prevent infinite loop
+            break
+    
+    if response:
+        conversation_history.append(f"Stranger: {response}")
+        sent_responses.add(response)  # Add to sent responses set
+        return response
+
+    # If no match, use context to craft a response
+    if len(conversation_history) > 1:
+        last_stranger_response = conversation_history[-2]
+        response = f"Based on what we were discussing earlier: {last_stranger_response.split('Stranger: ')[-1]}."
+        conversation_history.append(f"Stranger: {response}")
+        sent_responses.add(response)  # Add to sent responses set
+        return response
+
+    # Fallback response
+    fallback_response = "I'm not sure about that, can you explain more?"
+    conversation_history.append(f"Stranger: {fallback_response}")
+    sent_responses.add(fallback_response)  # Add to sent responses set
+    return fallback_response
+
+# Flask setup
 app = Flask(__name__)
 
-# Twitter API authentication details (Replace with your actual details)
-bearer_token = ""
-consumer_key = ""
-consumer_secret = ""
-access_token = ""
-access_token_secret = ""
+conversation_history = []  # Memory to store conversation
+input_output_pairs = load_training_data("brain.json")
+sent_responses = set()  # Track sent responses
 
-# V1 Authentication for media upload
-auth_v1 = tweepy.OAuthHandler(consumer_key, consumer_secret)
-auth_v1.set_access_token(access_token, access_token_secret)
-api_v1 = tweepy.API(auth_v1, wait_on_rate_limit=True)
-
-# V2 Authentication for tweet posting
-client_v2 = tweepy.Client(
-    bearer_token,
-    consumer_key,
-    consumer_secret,
-    access_token,
-    access_token_secret,
-    wait_on_rate_limit=True,
-)
-
-# Function to get a random controversial phrase with retry logic
-def get_random_controversial_phrase():
-    api_url = "https://scarlett-gjrx.onrender.com/"  # Update this to your actual API link
-    max_retries = 3
-    retry_delay = 5  # seconds
-
-    for attempt in range(max_retries):
-        try:
-            response = requests.get(api_url, timeout=20)  # Increased timeout
-            response.raise_for_status()  # Check for HTTP errors
-            data = response.json()
-            return data.get("controversial_phrase", "No phrase available")
-        except requests.exceptions.RequestException as e:
-            print(f"Attempt {attempt + 1} failed: {e}")
-            if attempt < max_retries - 1:  # Don't delay after the final attempt
-                print(f"Retrying in {retry_delay} seconds...")
-                time.sleep(retry_delay)
-            else:
-                print("Max retries reached. Failed to fetch data.")
-                return None
-
-# Function to upload media to Twitter
-def upload_image(image_path):
-    try:
-        media = api_v1.media_upload(image_path)
-        return media.media_id
-    except Exception as e:
-        print(f"Error uploading image: {e}")
-        return None
-
-# Function to post the tweet
-def post_tweet(image, text):
-    try:
-        if image and text:
-            media_id = upload_image(image)
-            if media_id:
-                client_v2.create_tweet(text=text, media_ids=[media_id])
-                print(f"Tweeted with image and text: {text}")
-        elif text:
-            client_v2.create_tweet(text=text)
-            print(f"Tweeted with text: {text}")
-        elif image:
-            media_id = upload_image(image)
-            if media_id:
-                client_v2.create_tweet(text="", media_ids=[media_id])
-                print("Tweeted with image only")
-    except tweepy.TweepyException as e:
-        print(f"Error posting tweet: {e}")
-
-# Bot's main loop function
-def main():
-    while True:
-        random_phrase = get_random_controversial_phrase()
-        if random_phrase:
-            post_tweet(image="", text=random_phrase)
-        
-        print('Waiting for the next interval...')
-        time.sleep(3600)  # Run every hour
-
-# Function to start the bot in a background thread
-def start_bot():
-    bot_thread = threading.Thread(target=main)
-    bot_thread.daemon = True  # Allows thread to exit when the main program exits
-    bot_thread.start()
-
-# Root endpoint
 @app.route('/')
 def index():
-    return "Flask API with bot is running in background."
+    return render_template('io.html')
 
-# Endpoint to start the bot if needed (e.g., for troubleshooting)
-@app.route('/start-bot')
-def start_bot_route():
-    start_bot()
-    return "Bot started."
+@app.route('/chat', methods=['POST'])
+def chat():
+    user_input = request.json.get('message')
+    if user_input:
+        response = get_response(user_input, input_output_pairs, conversation_history, sent_responses)
+        return jsonify({'response': response})
+    return jsonify({'response': "I'm not sure about that, can you explain more?"})
 
-# Start the server and bot in production environments
+# Save conversation history to file
+@app.route('/save', methods=['POST'])
+def save_conversation():
+    with open("conversation_history.json", "w", encoding="utf-8") as json_file:
+        json.dump(conversation_history, json_file, ensure_ascii=False, indent=4)
+    return jsonify({"status": "Conversation saved."})
+
 if __name__ == '__main__':
-    start_bot()  # Start the bot in the background
     app.run(debug=True)
