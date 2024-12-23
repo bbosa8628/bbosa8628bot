@@ -1,34 +1,109 @@
+import os
 import json
-from flask import Flask, request, jsonify
+import random
+from difflib import get_close_matches
+from flask import Flask, send_from_directory, request, jsonify
 
-app = Flask(__name__)
+# Load preprocessed training data
+def load_training_data(input_file="brain.json"):
+    with open(input_file, "r", encoding="utf-8") as json_file:
+        return json.load(json_file)
 
-# Function to load training data
-def load_training_data(filepath):
-    try:
-        with open(filepath, 'r') as json_file:
-            return json.load(json_file)
-    except FileNotFoundError:
-        print(f"Error: File {filepath} not found.")
-        return []
-    except json.JSONDecodeError:
-        print(f"Error: Invalid JSON format in {filepath}.")
-        return []
+# Fuzzy match to find the best response, with randomization
+def find_best_response(user_input, input_output_pairs):
+    user_input = user_input.lower()
+    possible_responses = []
 
-# Load the training data
+    # Handle specific protocol responses
+    if user_input == "f":
+        return "m"
+    elif user_input == "m":
+        return "f"
+    elif user_input == "f or m":
+        return random.choice(["m", "f"])
+    elif "are you a bot" in user_input or "are you a robot" in user_input:
+        return "lemme hope you're not a bot"
+    elif "do you hate humans" in user_input:
+        return "why would I hate myself"
+
+    # Direct match
+    for question, answer in input_output_pairs:
+        if user_input == question:
+            possible_responses.append(answer)
+
+    # Fuzzy match
+    questions = [q for q, _ in input_output_pairs]
+    closest_matches = get_close_matches(user_input, questions, n=1, cutoff=0.5)
+    if closest_matches:
+        match = closest_matches[0]
+        for question, answer in input_output_pairs:
+            if question == match:
+                possible_responses.append(answer)
+
+    # Return a random response from possible ones
+    if possible_responses:
+        return random.choice(possible_responses)
+
+    return None
+
+# Generate a response using context
+def get_response(user_input, input_output_pairs, conversation_history, sent_responses):
+    # Update conversation history
+    conversation_history.append(f"You: {user_input}")
+    
+    # Check for a relevant response
+    response = find_best_response(user_input, input_output_pairs)
+    
+    # If a response is found, ensure it hasn't been sent already
+    while response in sent_responses:
+        response = find_best_response(user_input, input_output_pairs)
+        if not response:  # If no response is found, break to prevent infinite loop
+            break
+    
+    if response:
+        conversation_history.append(f"Stranger: {response}")
+        sent_responses.add(response)  # Add to sent responses set
+        return response
+
+    # If no match, use context to craft a response
+    if len(conversation_history) > 1:
+        last_stranger_response = conversation_history[-2]
+        response = f"Based on what we were discussing earlier: {last_stranger_response.split('Stranger: ')[-1]}."
+        conversation_history.append(f"Stranger: {response}")
+        sent_responses.add(response)  # Add to sent responses set
+        return response
+
+    # Fallback response
+    fallback_response = "I'm not sure about that, can you explain more?"
+    conversation_history.append(f"Stranger: {fallback_response}")
+    sent_responses.add(fallback_response)  # Add to sent responses set
+    return fallback_response
+
+# Flask setup
+app = Flask(__name__, static_folder='static')
+
+conversation_history = []  # Memory to store conversation
 input_output_pairs = load_training_data("brain.json")
+sent_responses = set()  # Track sent responses
 
-@app.route("/")
-def home():
-    return "Flask App Running"
+@app.route('/')
+def index():
+    return send_from_directory('static', 'io.html')
 
-@app.route("/respond", methods=["POST"])
-def respond():
-    user_input = request.json.get("input", "")
-    for pair in input_output_pairs:
-        if pair.get("input").lower() == user_input.lower():
-            return jsonify({"response": pair.get("output")})
-    return jsonify({"response": "I don't understand that."})
+@app.route('/chat', methods=['POST'])
+def chat():
+    user_input = request.json.get('message')
+    if user_input:
+        response = get_response(user_input, input_output_pairs, conversation_history, sent_responses)
+        return jsonify({'response': response})
+    return jsonify({'response': "I'm not sure about that, can you explain more?"})
 
-if __name__ == "__main__":
-    app.run()
+@app.route('/save', methods=['POST'])
+def save_conversation():
+    with open("conversation_history.json", "w", encoding="utf-8") as json_file:
+        json.dump(conversation_history, json_file, ensure_ascii=False, indent=4)
+    return jsonify({"status": "Conversation saved."})
+
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
