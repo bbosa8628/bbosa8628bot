@@ -1,8 +1,7 @@
-import os
 import json
 import random
 from difflib import get_close_matches
-from flask import Flask, send_from_directory, request, jsonify
+from flask import Flask, render_template, request, jsonify
 
 # Load preprocessed training data
 def load_training_data(input_file="brain.json"):
@@ -80,7 +79,7 @@ def get_response(user_input, input_output_pairs, conversation_history, sent_resp
     return fallback_response
 
 # Flask setup
-app = Flask(__name__, templates_folder='templates')
+app = Flask(__name__, template_folder='templates')  # Fixed the issue here
 
 conversation_history = []  # Memory to store conversation
 input_output_pairs = load_training_data("brain.json")
@@ -88,7 +87,7 @@ sent_responses = set()  # Track sent responses
 
 @app.route('/')
 def index():
-    return send_from_directory('templates', 'io.html')
+    return render_template('io.html')
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -98,6 +97,7 @@ def chat():
         return jsonify({'response': response})
     return jsonify({'response': "I'm not sure about that, can you explain more?"})
 
+# Save conversation history to file
 @app.route('/save', methods=['POST'])
 def save_conversation():
     with open("conversation_history.json", "w", encoding="utf-8") as json_file:
@@ -105,5 +105,4 @@ def save_conversation():
     return jsonify({"status": "Conversation saved."})
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(debug=True)
