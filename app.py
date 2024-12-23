@@ -80,7 +80,7 @@ def get_response(user_input, input_output_pairs, conversation_history, sent_resp
     return fallback_response
 
 # Flask setup
-app = Flask(__name__, static_folder='static')
+app = Flask(__name__, templates_folder='templates')
 
 conversation_history = []  # Memory to store conversation
 input_output_pairs = load_training_data("brain.json")
@@ -88,7 +88,7 @@ sent_responses = set()  # Track sent responses
 
 @app.route('/')
 def index():
-    return send_from_directory('static', 'io.html')
+    return send_from_directory('templates', 'io.html')
 
 @app.route('/chat', methods=['POST'])
 def chat():
